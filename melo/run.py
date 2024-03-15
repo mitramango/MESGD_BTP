@@ -63,14 +63,14 @@ def run(config):
         from metrics import F1_ACC, is_qa_error
         upstream = NQ()
         edits = zsRE_balanced(split="edit", n_edits=1000)
-        edit_holdouts = zsRE_balanced(split="holdout", n_edits=1000)
+        # edit_holdouts = zsRE_balanced(split="holdout", n_edits=1000)
 
         '''Get Loaders
         '''
-        batch_size = config.grace.num_edit_per_block
+        batch_size = 1#config.grace.num_edit_per_block BTP
         edit_loader = DataLoader(edits, batch_size=batch_size, shuffle=True)
-        edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
-        upstream_loader = DataLoader(upstream, batch_size=batch_size, shuffle=False)
+        # edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
+        upstream_loader = DataLoader(upstream, batch_size=50, shuffle=False)
         hold_out = 0
         '''Define Metrics
         '''
@@ -120,7 +120,7 @@ def run(config):
 
     # Trainer
     if config.task == "qa" or config.task == "zsre":
-        trainer = zsre_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,edit_holdout_loader)
+        trainer = zsre_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
     elif config.task == "hallucination":
         trainer = hallucination_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,accurate_loader)
     elif config.task == "scotus":

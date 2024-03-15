@@ -67,7 +67,7 @@ class LORA(torch.nn.Module):
         Ends Comment'''
 
         self.model = model
-
+        self.orig_state_dict = model.state_dict()
         '''Load Tokenizer
         '''
         self.model_tok = model_tok
@@ -171,7 +171,7 @@ class LORA(torch.nn.Module):
         # setattr(self.model.get_submodule(self.grace_layer), "edit_label", tokens["labels"])
 
         self.losses = []
-        for i in range(self.config.grace.num_iter):
+        for i in range(1):
             # --- insert iteration into each layer (only initiate keys on first iteration) ---
             # setattr(self.model.get_submodule(self.grace_layer), "batch_iter", i)
 

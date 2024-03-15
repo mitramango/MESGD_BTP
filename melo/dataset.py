@@ -108,39 +108,49 @@ class zsRE_balanced(Dataset):
     def __init__(self, path=f"{hydra.utils.get_original_cwd()}/data/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit", n_edits= 5000):
         # inner = 1*question + (n-1)*rephrases
         # outer = n*rephrases
-        inner_questions, inner_answers, outer_questions, outer_answers = \
+        inner_questions, inner_answers, outer_questions, outer_answers, actual, holdout = \
             self.load_zsre(path, n_edits=n_edits)
 
 
         edits = []
         hold_outs = []
-        for x, y in zip(inner_questions, inner_answers):
-            edits.append({
-                "text": x,
-                "labels": y
-            })
+        
 
-        for x, y in zip(outer_questions, outer_answers):
-            hold_outs.append({
-                "text": x,
-                "labels": y
-            })
+        for x, y in zip(actual, holdout):
+            to_generality = []
+            to_edit = {"text": x[0][0], "labels": x[1][0]}
+            for z, za in zip(y[0],y[1]):
+                # to_generality["text"].append(z)
+                # to_generality["labels"].append(za)
+                to_generality.append({
+                    "text": z,
+                    "labels": za
+                })
+            edits.append([to_edit, to_generality])
+
+        # for x, y in zip(outer_questions, outer_answers):
+            # hold_outs.append({
+            #     "text": x,
+            #     "labels": y
+            # })
 
         n_edits = min(n_edits, len(inner_questions))
-
+        # print(edits[0])
+        # assert 1==2
         np.random.seed(42)
-        shuffle_edit = np.random.choice(n_edits, n_edits, replace=False)
-        shuffle_holdout = np.random.choice(len(outer_questions), len(outer_questions), replace=False)
-        edit_batches = [edits[i] for i in shuffle_edit]
-        edit_batches_holdout = [edits[i] for i in shuffle_holdout]
-        print(f"Loaded {len(edit_batches)} possible edits and {len(edit_batches_holdout)} holdouts.")
+        # BTP removed shuffling
+        # shuffle_edit = np.random.choice(n_edits, n_edits, replace=False)
+        # shuffle_holdout = np.random.choice(len(outer_questions), len(outer_questions), replace=False)
+        # edit_batches = [edits[i] for i in shuffle_edit]
+        # edit_batches_holdout = [edits[i] for i in shuffle_holdout]
+        print(f"Loaded {len(edits)} possible edits.")
 
         if split == "edit":
-            self.data = edit_batches
-        elif split == "holdout":
-            self.data = edit_batches_holdout
-        else:
-            print(f"split '{split}' undefined")
+            self.data = edits
+        # elif split == "holdout":
+        #     self.data = edit_batches_holdout
+        # else:
+        #     print(f"split '{split}' undefined")
 
     def __len__(self):
         return len(self.data)
@@ -155,26 +165,37 @@ class zsRE_balanced(Dataset):
         inner_answers = []
         outer_questions = []
         outer_answers = []
+        actual = []
+        holdout = []
         subject = []
         with jsonlines.open(data_path) as f:
             for d in f:
+                i, ia, o, oa = [], [], [], []
                 ex = {k: d[k] for k in ["input", "prediction", "alternatives", "filtered_rephrases", "output"]}
                 reph_len = len(ex["filtered_rephrases"])
-                reph_len = min(reph_len, 16)
+                reph_len = min(reph_len, 1)
                 if reph_len > 0 and ex["output"][0]["answer"] not in subject:
                     inner_questions.append(ex["input"])
                     inner_answers.append(ex["output"][0]["answer"])
-                    for rephrases in ex["filtered_rephrases"][:reph_len//2]:
-                        inner_questions.append(rephrases)
-                        inner_answers.append(ex["output"][0]["answer"])
-                    for rephrases in ex["filtered_rephrases"][reph_len//2:reph_len+1]:
+                    i.append(ex["input"])
+                    ia.append(ex["output"][0]["answer"])
+                    # for rephrases in ex["filtered_rephrases"][:reph_len//2]:
+                    #     inner_questions.append(rephrases)
+                    #     inner_answers.append(ex["output"][0]["answer"]) BTP
+                    for rephrases in ex["filtered_rephrases"][:reph_len+1]: # BTP
                         outer_questions.append(rephrases)
                         outer_answers.append(ex["output"][0]["answer"])
+                        o.append(rephrases)
+                        oa.append(ex["output"][0]["answer"])
+                    actual.append([i,ia])
+                    holdout.append([o,oa])
                     subject.append(ex["output"][0]["answer"])
                 if len(inner_answers) >= n_edits:
                     break
-        assert len(inner_answers) > n_edits, "Not enough balanced data"
-        return inner_questions, inner_answers, outer_answers, outer_questions
+        # print(holdout[0])
+        # assert(1==2)
+        # assert len(inner_answers) > n_edits, "Not enough balanced data"
+        return inner_questions, inner_answers, outer_answers, outer_questions, actual, holdout
 
 
 class WebText10k(Dataset):

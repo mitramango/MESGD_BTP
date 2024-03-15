@@ -16,6 +16,13 @@ import models
 LOG = logging.getLogger(__name__)
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
+def list_of_dicts_to_dict_of_lists(list_of_dicts):
+    result = {}
+    for d in list_of_dicts:
+        for key, value in d.items():
+            result.setdefault(key, []).append(value[0])
+    return result
+
 class scotus_trainer:
     def __init__(self, config, alg, tokenize, metric, edit_loader, upstream_loader):
         self.config = config
@@ -121,7 +128,7 @@ class zsre_trainer:
         self.edit_loader = edit_loader
         self.upstream_loader  = upstream_loader
         self.edit_holdout_loader = edit_holdout_loader
-        self.batch_size = config.grace.num_edit_per_block
+        self.batch_size = 1#config.grace.num_edit_per_block BTP
 
     def pre_editing_analyse(self):
         self.alg.disable_melo()
@@ -160,15 +167,27 @@ class zsre_trainer:
         all_HOLDOUT = {}
         all_UP = {}
         all_VecDB = {}
-
+        
+        all_ES = 0
+        all_hold = 0
+        all_local = 0
+        
         for i, batch in tqdm(enumerate(self.edit_loader)):
-            if i == 25:
+            if i == 1:
                 print(i)
+                break
             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
-            tokens = self.tokenize(batch, self.alg.model_tok, DEVICE)
+            # print(batch[0])
+            # print()
+            e = list_of_dicts_to_dict_of_lists(batch[1])
+            # print(e)
+            # print()
+            # assert 1==2
+            tokens = self.tokenize(batch[0], self.alg.model_tok, DEVICE)
+            # assert 1==2
             if n_edits < self.config.max_n_edits:
-                n_edits += self.batch_size
-                batch_history.append(tokens)
+                n_edits += 1
+                # batch_history.append(tokens) BTP
 
                 # --- perform edit ---
                 edit_start = time()
@@ -179,36 +198,46 @@ class zsre_trainer:
                 # --- Compute and log metrics ---
                 log_dict = {}
                 with torch.no_grad():
-                    ES_f1, ES_acc = self.metric(self.alg, tokens)
-                    LOG.info(f'Batch {i} after Editing: F1: {ES_f1} || ACC: {ES_acc}')
-
-                    if (i > 0 and n_edits % self.config.grace.metric_period == 0) or (i == len(self.edit_loader) - 1):
+                    ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE))]
+                    ES_f1 = torch.tensor([x[0] for x in ES]).nanmean()
+                    # assert 1==2
+                    LOG.info(f'Batch {i} after Editing: F1: {ES_f1} || ACC: {0}')
+                    all_ES = all_ES + ES_f1
+                    
+                    if (i >= 0 and n_edits % 1 == 0) or (i == len(self.edit_loader) - 1):
                         LOG.info(
                             f'-------------------------    Eval all {n_edits} history edits----------------------------------')
                         if self.config.task == 'qa':
-                            holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE)) for e in
-                                       iter(self.edit_holdout_loader)]
+                            holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE))]
                             holdout_f1 = torch.tensor([x[0] for x in holdout]).nanmean()
+                            
+                            all_hold = all_hold + holdout_f1
+                            LOG.info(f'Batch {i} Generality after Editing: F1: {holdout_f1} || ACC: {0}')
+                            assert 1==2
                             holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
                         else:
                             pass
 
-                        HISTORY = [self.metric(self.alg, tokens) for tokens in batch_history]
-                        HISTORY_f1 = torch.tensor([x[0] for x in HISTORY]).nanmean()
-                        HISTORY_acc = torch.tensor([x[1] for x in HISTORY]).nanmean()
+                        # BTP commented HIS
+                        # HISTORY = [self.metric(self.alg, tokens) for tokens in batch_history]
+                        # HISTORY_f1 = torch.tensor([x[0] for x in HISTORY]).nanmean()
+                        # HISTORY_acc = torch.tensor([x[1] for x in HISTORY]).nanmean() 
 
                         UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
                               iter(self.upstream_loader)]
                         UP_f1 = torch.tensor([x[0] for x in UP]).nanmean()
+                        all_local = all_local + UP_f1
+                        LOG.info(f'Batch {i} Locality after Editing: F1: {UP_f1} || ACC: {0}')
                         UP_acc = torch.tensor([x[1] for x in UP]).nanmean()
                         # --- Log metrics and push to Weights & Biases ---
                         log_dict["UP"] = {'UP_f1': UP_f1.item(), 'UP_acc': UP_acc.item()}  # Test Retention Rate
-                        log_dict["HIS"] = {'HIS_f1': HISTORY_f1.item(),
-                                           'HIS_acc': HISTORY_acc.item()}  # Error Retention Rate
-                        log_dict["ES"] = {'ES_f1': ES_f1, 'ES_acc': ES_acc}  # Edit Success
+                        # BTP, commented HIS
+                        # log_dict["HIS"] = {'HIS_f1': HISTORY_f1.item(),
+                        #                    'HIS_acc': HISTORY_acc.item()}  # Error Retention Rate
+                        log_dict["ES"] = {'ES_f1': ES_f1.item(), 'ES_acc': 0}  # Edit Success
                         log_dict["train_time"] = edit_time / 60  # Time it takes to make one edit
-                        log_dict["edit"] = batch["text"]  # Raw edit input
-                        log_dict["edit_label"] = batch["labels"]  # Raw edit label
+                        # log_dict["edit"] = batch["text"]  # Raw edit input
+                        # log_dict["edit_label"] = batch["labels"]  # Raw edit label
                         log_dict["n_edits"] = n_edits  # Raw edit label
                         log_dict['holdout'] = {'holdout_f1': holdout_f1.item(), 'holdout_acc': holdout_acc.item()}
                         print(f"Number of edits {n_edits}")
@@ -216,7 +245,7 @@ class zsre_trainer:
                             LOG.info(f"[+eval result+]{k}: {log_dict[k]}")
 
                         all_UP[n_edits] = log_dict["UP"]
-                        all_HIS[n_edits] = log_dict["HIS"]
+                        # all_HIS[n_edits] = log_dict["HIS"] # BTP commented HIS
                         all_HOLDOUT[n_edits] = log_dict["holdout"]
                         all_edit_time[n_edits] = total_edit_time
                         # VecDB_info = self.alg.get_VecDB_info()
@@ -224,10 +253,12 @@ class zsre_trainer:
                             # LOG.info(f"[+VecDB Info+]{k}: {VecDB_info[k]}")
                         # all_VecDB[n_edits] = VecDB_info
                         pass
-
+                self.alg.model.load_state_dict(self.alg.orig_state_dict)
+        print('all_UP', all_local/n_edits, 'all_ES', all_ES/n_edits , 'all_HOLDOUT', all_hold/n_edits)
         with open(f'log.pkl', 'wb') as f:
+            # BTP changed all_HIS to average edit success
             pickle.dump(
-                {'all_UP': all_UP, 'all_HIS': all_HIS, 'all_HOLDOUT': all_HOLDOUT, 'all_edit_time': all_edit_time}, f)
+                {'all_UP': all_local/n_edits, 'all_ES': all_ES/n_edits , 'all_HOLDOUT': all_hold/n_edits}, f)
 
         LOG.info(f"[**Total Edit Time**] {total_edit_time / 60} mins")
 
