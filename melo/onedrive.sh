@@ -1,3 +1,3 @@
 LINK=$1
 NAME=$2
-wget "$LINK?download=1" -o $NAME
+wget "$LINK?download=1" -O $NAME
