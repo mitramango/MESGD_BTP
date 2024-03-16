@@ -173,9 +173,9 @@ class zsre_trainer:
         all_local = 0
         
         for i, batch in tqdm(enumerate(self.edit_loader)):
-            if i == 1:
-                print(i)
-                break
+            # if i == 1:
+                # print(i)
+                # break
             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
             # print(batch[0])
             # print()
@@ -213,7 +213,7 @@ class zsre_trainer:
                             
                             all_hold = all_hold + holdout_f1
                             LOG.info(f'Batch {i} Generality after Editing: F1: {holdout_f1} || ACC: {0}')
-                            assert 1==2
+                            # assert 1==2
                             holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
                         else:
                             pass

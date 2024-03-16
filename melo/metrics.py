@@ -123,8 +123,10 @@ def PPL(alg, batch):
 
 def F1_ACC(alg, batch):
     try:
-        print(len(batch["input_ids"])
-        preds = alg.generate(batch["input_ids"], max_length=20).squeeze()
+        # print("this ",len(batch["input_ids"]))
+        # print(batch['input_ids'])
+        preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1)
+        # print(preds)
         f1 = F1(preds, batch, alg.model_tok)
         # acc = ACC(preds, batch, alg.model_tok)
         acc = 1.0
@@ -137,10 +139,11 @@ def F1(preds, batch, tok):
     # print("this", len(batch["labels"]))
     try:
         f1_list = []
+        # print("yahan", len(preds)) 
         for p, g in zip(preds,batch["labels"]):
             p = p[p !=  tok.pad_token_id].cpu().squeeze()
             g = g[g != -100].cpu().squeeze()  # -100 might be nonsense
-            # print(p, g)
+            #i print(p, g)
             num_same = len(np.intersect1d(p, g))
             len_pred = len(p)
             len_gold = len(g)

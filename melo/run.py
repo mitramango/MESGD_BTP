@@ -70,7 +70,7 @@ def run(config):
         batch_size = 1#config.grace.num_edit_per_block BTP
         edit_loader = DataLoader(edits, batch_size=batch_size, shuffle=True)
         # edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
-        upstream_loader = DataLoader(upstream, batch_size=50, shuffle=False)
+        upstream_loader = DataLoader(upstream, batch_size=100, shuffle=False)
         hold_out = 0
         '''Define Metrics
         '''
