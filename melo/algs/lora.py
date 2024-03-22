@@ -164,14 +164,14 @@ class LORA(torch.nn.Module):
 
     The NEW BTP EDIT function is given below'''
     def edit(self, tokens):
-        optimizer = torch.optim.Adam(self.optim_parameters(), 1e-5)
+        optimizer = torch.optim.SGD(self.optim_parameters(), 1e-5)
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=20,gamma=0.5)
         # --- pass edit label, training mode, and key_id into GRACE ---
         # setattr(self.model.get_submodule(self.grace_layer), "training", True)
         # setattr(self.model.get_submodule(self.grace_layer), "edit_label", tokens["labels"])
 
         self.losses = []
-        for i in range(32):
+        for i in range(16):
             # --- insert iteration into each layer (only initiate keys on first iteration) ---
             # setattr(self.model.get_submodule(self.grace_layer), "batch_iter", i)
 
