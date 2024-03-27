@@ -16,17 +16,17 @@ LOG = logging.getLogger(__name__)
 
 def run():
 
-    # T5-Small
-    model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
-    tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
-    tokenize = tokenize_qa
+    # # T5-Small
+    # model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
+    # tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
+    # tokenize = tokenize_qa
     
     
-    # # GPT-2
-    # model = GPT2LMHeadModel.from_pretrained("gpt2")
-    # tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
-    # tokenizer.pad_token_id = tokenizer.eos_token_id
-    # tokenize = tokenize_gpt
+    # GPT-2
+    model = GPT2LMHeadModel.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenize = tokenize_gpt
     
     DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(DEVICE)
@@ -61,7 +61,7 @@ def run():
 
     trainer = zsre_trainer(alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
     
-    file_path = "results_t5.txt"
+    file_path = "results_gpt2.txt"
     for i in range(6):
         torch.cuda.empty_cache()
         loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam")
@@ -76,7 +76,6 @@ def run():
             file.write("\n")
             file.write(f"num_steps = {2**i}, opt = SGD:" + "\n") 
             file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
-
 
 if __name__ == '__main__':
     run()

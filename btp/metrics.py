@@ -123,10 +123,15 @@ def PPL(alg, batch):
 
 def F1_ACC(alg, batch):
     try:
-        preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) # T5
-        # preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=5).squeeze(1) #GPT
+        # # T5
+        # preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
+        
+        # # GPT2
+        preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
+        preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
+        
+        
         f1 = F1(preds, batch, alg.model_tok)
-        # acc = ACC(preds, batch, alg.model_tok)
         acc = 1.0
         return f1, acc
     except Exception as e:

@@ -1,0 +1,557 @@
+Starting at Friday 22 March 2024 07:09:55 PM IST
+Running on hosts: scn15-10g
+Running on 1 nodes.
+Running 32 tasks.
+Job id is 234055
+Job submission directory is : /nlsasfs/home/ttbhashini/sbishal/mangalik/MESGD_BTP/btp
+/opt/slurm-20.11.7/var/spool/slurmd/job234055/slurm_script: line 18: source: /nlsasfs/home/ttbhashini/sbishal/anaconda3/envs/mesgd/bin/python: cannot execute binary file
+/opt/slurm-20.11.7/var/spool/slurmd/job234055/slurm_script: line 19: gpustat: command not found
+usage: conda [-h] [--no-plugins] [-V] COMMAND ...
+conda: error: argument COMMAND: invalid choice: 'activate' (choose from 'clean', 'compare', 'config', 'create', 'info', 'init', 'install', 'list', 'notices', 'package', 'remove', 'uninstall', 'rename', 'run', 'search', 'update', 'upgrade', 'build', 'content-trust', 'convert', 'debug', 'develop', 'doctor', 'index', 'inspect', 'metapackage', 'render', 'skeleton', 'token', 'env', 'repo', 'pack', 'verify', 'server')
+/opt/slurm-20.11.7/var/spool/slurmd/job234055/slurm_script: line 30: export: `http://proxy-10g.10g.siddhi.param:9090': not a valid identifier
+diff --git a/btp/.ipynb_checkpoints/metrics-checkpoint.py b/btp/.ipynb_checkpoints/metrics-checkpoint.py
+index 2008af1..594f1e8 100644
+--- a/btp/.ipynb_checkpoints/metrics-checkpoint.py
++++ b/btp/.ipynb_checkpoints/metrics-checkpoint.py
+@@ -123,10 +123,15 @@ def PPL(alg, batch):
+ 
+ def F1_ACC(alg, batch):
+     try:
+-        preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) # T5
+-        # preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=5).squeeze(1) #GPT
++        # # T5
++        # preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
++        
++        # # GPT2
++        preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
++        preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
++        
++        
+         f1 = F1(preds, batch, alg.model_tok)
+-        # acc = ACC(preds, batch, alg.model_tok)
+         acc = 1.0
+         return f1, acc
+     except Exception as e:
+diff --git a/btp/.ipynb_checkpoints/run-checkpoint.py b/btp/.ipynb_checkpoints/run-checkpoint.py
+index 5ca25a4..a96fef7 100644
+--- a/btp/.ipynb_checkpoints/run-checkpoint.py
++++ b/btp/.ipynb_checkpoints/run-checkpoint.py
+@@ -16,17 +16,17 @@ LOG = logging.getLogger(__name__)
+ 
+ def run():
+ 
+-    # T5-Small
+-    model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
+-    tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
+-    tokenize = tokenize_qa
++    # # T5-Small
++    # model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
++    # tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
++    # tokenize = tokenize_qa
+     
+     
+-    # # GPT-2
+-    # model = GPT2LMHeadModel.from_pretrained("gpt2")
+-    # tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
+-    # tokenizer.pad_token_id = tokenizer.eos_token_id
+-    # tokenize = tokenize_gpt
++    # GPT-2
++    model = GPT2LMHeadModel.from_pretrained("gpt2")
++    tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
++    tokenizer.pad_token_id = tokenizer.eos_token_id
++    tokenize = tokenize_gpt
+     
+     DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+     model.to(DEVICE)
+@@ -61,7 +61,7 @@ def run():
+ 
+     trainer = zsre_trainer(alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
+     
+-    file_path = "results_t5.txt"
++    file_path = "results_gpt2.txt"
+     for i in range(6):
+         torch.cuda.empty_cache()
+         loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam")
+@@ -77,6 +77,5 @@ def run():
+             file.write(f"num_steps = {2**i}, opt = SGD:" + "\n") 
+             file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
+ 
+-
+ if __name__ == '__main__':
+     run()
+\ No newline at end of file
+diff --git a/btp/.ipynb_checkpoints/t5job-checkpoint.sh b/btp/.ipynb_checkpoints/t5job-checkpoint.sh
+deleted file mode 100644
+index 7c758ab..0000000
+--- a/btp/.ipynb_checkpoints/t5job-checkpoint.sh
++++ /dev/null
+@@ -1,42 +0,0 @@
+-#! /bin/bash
+-#SBATCH -N 1
+-#SBATCH --ntasks-per-node=32
+-#SBATCH --gres=gpu:A100-SXM4:1
+-#SBATCH --time=3-00:00:00
+-#SBATCH --partition=testp
+-##SBATCH --error=/nlsasfs/home/ttbhashini/arroy/bishal/logs/coral_%x.%J.err
+-#SBATCH --output=/nlsasfs/home/ttbhashini/arroy/bishal/logs/coral_%x.%J.out
+-echo "Starting at `date`"
+-echo "Running on hosts: $SLURM_NODELIST"
+-echo "Running on $SLURM_NNODES nodes."
+-echo "Running $SLURM_NTASKS tasks."
+-echo "Job id is $SLURM_JOBID"
+-echo "Job submission directory is : $SLURM_SUBMIT_DIR"
+-cd $SLURM_SUBMIT_DIR
+-
+-#################conda environment path ################################
+-source /nlsasfs/home/ttbhashini/sbishal/anaconda3/envs/mesgd/bin/python
+-gpustat
+-
+-# Activate
+-conda activate mesgd
+-
+-# Workdir
+-cd /nlsasfs/home/ttbhashini/sbishal/mangalik/MESGD_BTP/btp
+-
+-# Internet
+-export http_proxy=http://proxy-10g.10g.siddhi.param:9090
+-export https_proxy=http://proxy-10g.10g.siddhi.param:9090
+-export ftp_proxy= http://proxy-10g.10g.siddhi.param:9090
+-
+-# wandb
+-# export WANDB_API_KEY=...
+-# export WANDB_ENTITY=...
+-
+-
+-# Remember the diff
+-# git diff
+-
+-# Run script
+-
+-python run.py
+diff --git a/btp/log.pkl b/btp/log.pkl
+deleted file mode 100644
+index 0e4ded7..0000000
+Binary files a/btp/log.pkl and /dev/null differ
+diff --git a/btp/metrics.py b/btp/metrics.py
+index 2008af1..594f1e8 100644
+--- a/btp/metrics.py
++++ b/btp/metrics.py
+@@ -123,10 +123,15 @@ def PPL(alg, batch):
+ 
+ def F1_ACC(alg, batch):
+     try:
+-        preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) # T5
+-        # preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=5).squeeze(1) #GPT
++        # # T5
++        # preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
++        
++        # # GPT2
++        preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
++        preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
++        
++        
+         f1 = F1(preds, batch, alg.model_tok)
+-        # acc = ACC(preds, batch, alg.model_tok)
+         acc = 1.0
+         return f1, acc
+     except Exception as e:
+diff --git a/btp/run.py b/btp/run.py
+index 5ca25a4..a96fef7 100644
+--- a/btp/run.py
++++ b/btp/run.py
+@@ -16,17 +16,17 @@ LOG = logging.getLogger(__name__)
+ 
+ def run():
+ 
+-    # T5-Small
+-    model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
+-    tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
+-    tokenize = tokenize_qa
++    # # T5-Small
++    # model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
++    # tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
++    # tokenize = tokenize_qa
+     
+     
+-    # # GPT-2
+-    # model = GPT2LMHeadModel.from_pretrained("gpt2")
+-    # tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
+-    # tokenizer.pad_token_id = tokenizer.eos_token_id
+-    # tokenize = tokenize_gpt
++    # GPT-2
++    model = GPT2LMHeadModel.from_pretrained("gpt2")
++    tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
++    tokenizer.pad_token_id = tokenizer.eos_token_id
++    tokenize = tokenize_gpt
+     
+     DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+     model.to(DEVICE)
+@@ -61,7 +61,7 @@ def run():
+ 
+     trainer = zsre_trainer(alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
+     
+-    file_path = "results_t5.txt"
++    file_path = "results_gpt2.txt"
+     for i in range(6):
+         torch.cuda.empty_cache()
+         loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam")
+@@ -77,6 +77,5 @@ def run():
+             file.write(f"num_steps = {2**i}, opt = SGD:" + "\n") 
+             file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
+ 
+-
+ if __name__ == '__main__':
+     run()
+\ No newline at end of file
+diff --git a/btp/t5job.sh b/btp/t5job.sh
+deleted file mode 100644
+index 7c758ab..0000000
+--- a/btp/t5job.sh
++++ /dev/null
+@@ -1,42 +0,0 @@
+-#! /bin/bash
+-#SBATCH -N 1
+-#SBATCH --ntasks-per-node=32
+-#SBATCH --gres=gpu:A100-SXM4:1
+-#SBATCH --time=3-00:00:00
+-#SBATCH --partition=testp
+-##SBATCH --error=/nlsasfs/home/ttbhashini/arroy/bishal/logs/coral_%x.%J.err
+-#SBATCH --output=/nlsasfs/home/ttbhashini/arroy/bishal/logs/coral_%x.%J.out
+-echo "Starting at `date`"
+-echo "Running on hosts: $SLURM_NODELIST"
+-echo "Running on $SLURM_NNODES nodes."
+-echo "Running $SLURM_NTASKS tasks."
+-echo "Job id is $SLURM_JOBID"
+-echo "Job submission directory is : $SLURM_SUBMIT_DIR"
+-cd $SLURM_SUBMIT_DIR
+-
+-#################conda environment path ################################
+-source /nlsasfs/home/ttbhashini/sbishal/anaconda3/envs/mesgd/bin/python
+-gpustat
+-
+-# Activate
+-conda activate mesgd
+-
+-# Workdir
+-cd /nlsasfs/home/ttbhashini/sbishal/mangalik/MESGD_BTP/btp
+-
+-# Internet
+-export http_proxy=http://proxy-10g.10g.siddhi.param:9090
+-export https_proxy=http://proxy-10g.10g.siddhi.param:9090
+-export ftp_proxy= http://proxy-10g.10g.siddhi.param:9090
+-
+-# wandb
+-# export WANDB_API_KEY=...
+-# export WANDB_ENTITY=...
+-
+-
+-# Remember the diff
+-# git diff
+-
+-# Run script
+-
+-python run.py
+diff --git a/melo/.ipynb_checkpoints/dataset-checkpoint.py b/melo/.ipynb_checkpoints/dataset-checkpoint.py
+index fffe969..40496a1 100644
+--- a/melo/.ipynb_checkpoints/dataset-checkpoint.py
++++ b/melo/.ipynb_checkpoints/dataset-checkpoint.py
+@@ -108,39 +108,49 @@ class zsRE_balanced(Dataset):
+     def __init__(self, path=f"{hydra.utils.get_original_cwd()}/data/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit", n_edits= 5000):
+         # inner = 1*question + (n-1)*rephrases
+         # outer = n*rephrases
+-        inner_questions, inner_answers, outer_questions, outer_answers = \
++        inner_questions, inner_answers, outer_questions, outer_answers, actual, holdout = \
+             self.load_zsre(path, n_edits=n_edits)
+ 
+ 
+         edits = []
+         hold_outs = []
+-        for x, y in zip(inner_questions, inner_answers):
+-            edits.append({
+-                "text": x,
+-                "labels": y
+-            })
+-
+-        for x, y in zip(outer_questions, outer_answers):
+-            hold_outs.append({
+-                "text": x,
+-                "labels": y
+-            })
++        
++
++        for x, y in zip(actual, holdout):
++            to_generality = []
++            to_edit = {"text": x[0][0], "labels": x[1][0]}
++            for z, za in zip(y[0],y[1]):
++                # to_generality["text"].append(z)
++                # to_generality["labels"].append(za)
++                to_generality.append({
++                    "text": z,
++                    "labels": za
++                })
++            edits.append([to_edit, to_generality])
++
++        # for x, y in zip(outer_questions, outer_answers):
++            # hold_outs.append({
++            #     "text": x,
++            #     "labels": y
++            # })
+ 
+         n_edits = min(n_edits, len(inner_questions))
+-
++        # print(edits[0])
++        # assert 1==2
+         np.random.seed(42)
+-        shuffle_edit = np.random.choice(n_edits, n_edits, replace=False)
+-        shuffle_holdout = np.random.choice(len(outer_questions), len(outer_questions), replace=False)
+-        edit_batches = [edits[i] for i in shuffle_edit]
+-        edit_batches_holdout = [edits[i] for i in shuffle_holdout]
+-        print(f"Loaded {len(edit_batches)} possible edits and {len(edit_batches_holdout)} holdouts.")
++        # BTP removed shuffling
++        # shuffle_edit = np.random.choice(n_edits, n_edits, replace=False)
++        # shuffle_holdout = np.random.choice(len(outer_questions), len(outer_questions), replace=False)
++        # edit_batches = [edits[i] for i in shuffle_edit]
++        # edit_batches_holdout = [edits[i] for i in shuffle_holdout]
++        print(f"Loaded {len(edits)} possible edits.")
+ 
+         if split == "edit":
+-            self.data = edit_batches
+-        elif split == "holdout":
+-            self.data = edit_batches_holdout
+-        else:
+-            print(f"split '{split}' undefined")
++            self.data = edits
++        # elif split == "holdout":
++        #     self.data = edit_batches_holdout
++        # else:
++        #     print(f"split '{split}' undefined")
+ 
+     def __len__(self):
+         return len(self.data)
+@@ -155,26 +165,37 @@ class zsRE_balanced(Dataset):
+         inner_answers = []
+         outer_questions = []
+         outer_answers = []
++        actual = []
++        holdout = []
+         subject = []
+         with jsonlines.open(data_path) as f:
+             for d in f:
++                i, ia, o, oa = [], [], [], []
+                 ex = {k: d[k] for k in ["input", "prediction", "alternatives", "filtered_rephrases", "output"]}
+                 reph_len = len(ex["filtered_rephrases"])
+-                reph_len = min(reph_len, 16)
++                reph_len = min(reph_len, 1)
+                 if reph_len > 0 and ex["output"][0]["answer"] not in subject:
+                     inner_questions.append(ex["input"])
+                     inner_answers.append(ex["output"][0]["answer"])
+-                    for rephrases in ex["filtered_rephrases"][:reph_len//2]:
+-                        inner_questions.append(rephrases)
+-                        inner_answers.append(ex["output"][0]["answer"])
+-                    for rephrases in ex["filtered_rephrases"][reph_len//2:reph_len+1]:
++                    i.append(ex["input"])
++                    ia.append(ex["output"][0]["answer"])
++                    # for rephrases in ex["filtered_rephrases"][:reph_len//2]:
++                    #     inner_questions.append(rephrases)
++                    #     inner_answers.append(ex["output"][0]["answer"]) BTP
++                    for rephrases in ex["filtered_rephrases"][:reph_len+1]: # BTP
+                         outer_questions.append(rephrases)
+                         outer_answers.append(ex["output"][0]["answer"])
++                        o.append(rephrases)
++                        oa.append(ex["output"][0]["answer"])
++                    actual.append([i,ia])
++                    holdout.append([o,oa])
+                     subject.append(ex["output"][0]["answer"])
+                 if len(inner_answers) >= n_edits:
+                     break
+-        assert len(inner_answers) > n_edits, "Not enough balanced data"
+-        return inner_questions, inner_answers, outer_answers, outer_questions
++        # print(holdout[0])
++        # assert(1==2)
++        # assert len(inner_answers) > n_edits, "Not enough balanced data"
++        return inner_questions, inner_answers, outer_answers, outer_questions, actual, holdout
+ 
+ 
+ class WebText10k(Dataset):
+diff --git a/melo/.ipynb_checkpoints/run-checkpoint.py b/melo/.ipynb_checkpoints/run-checkpoint.py
+index f02030d..709cec5 100644
+--- a/melo/.ipynb_checkpoints/run-checkpoint.py
++++ b/melo/.ipynb_checkpoints/run-checkpoint.py
+@@ -63,14 +63,14 @@ def run(config):
+         from metrics import F1_ACC, is_qa_error
+         upstream = NQ()
+         edits = zsRE_balanced(split="edit", n_edits=1000)
+-        edit_holdouts = zsRE_balanced(split="holdout", n_edits=1000)
++        # edit_holdouts = zsRE_balanced(split="holdout", n_edits=1000)
+ 
+         '''Get Loaders
+         '''
+-        batch_size = config.grace.num_edit_per_block
++        batch_size = 1#config.grace.num_edit_per_block BTP
+         edit_loader = DataLoader(edits, batch_size=batch_size, shuffle=True)
+-        edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
+-        upstream_loader = DataLoader(upstream, batch_size=batch_size, shuffle=False)
++        # edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
++        upstream_loader = DataLoader(upstream, batch_size=100, shuffle=False)
+         hold_out = 0
+         '''Define Metrics
+         '''
+@@ -120,7 +120,7 @@ def run(config):
+ 
+     # Trainer
+     if config.task == "qa" or config.task == "zsre":
+-        trainer = zsre_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,edit_holdout_loader)
++        trainer = zsre_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
+     elif config.task == "hallucination":
+         trainer = hallucination_trainer(config,alg,tokenize,metric,edit_loader,upstream_loader,accurate_loader)
+     elif config.task == "scotus":
+diff --git a/melo/.ipynb_checkpoints/trainer-checkpoint.py b/melo/.ipynb_checkpoints/trainer-checkpoint.py
+index 23d95c6..898afcf 100644
+--- a/melo/.ipynb_checkpoints/trainer-checkpoint.py
++++ b/melo/.ipynb_checkpoints/trainer-checkpoint.py
+@@ -16,6 +16,13 @@ import models
+ LOG = logging.getLogger(__name__)
+ DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+ 
++def list_of_dicts_to_dict_of_lists(list_of_dicts):
++    result = {}
++    for d in list_of_dicts:
++        for key, value in d.items():
++            result.setdefault(key, []).append(value[0])
++    return result
++
+ class scotus_trainer:
+     def __init__(self, config, alg, tokenize, metric, edit_loader, upstream_loader):
+         self.config = config
+@@ -121,7 +128,7 @@ class zsre_trainer:
+         self.edit_loader = edit_loader
+         self.upstream_loader  = upstream_loader
+         self.edit_holdout_loader = edit_holdout_loader
+-        self.batch_size = config.grace.num_edit_per_block
++        self.batch_size = 1#config.grace.num_edit_per_block BTP
+ 
+     def pre_editing_analyse(self):
+         self.alg.disable_melo()
+@@ -160,15 +167,27 @@ class zsre_trainer:
+         all_HOLDOUT = {}
+         all_UP = {}
+         all_VecDB = {}
+-
++        
++        all_ES = 0
++        all_hold = 0
++        all_local = 0
++        
+         for i, batch in tqdm(enumerate(self.edit_loader)):
+-            if i == 25:
+-                print(i)
++            # if i == 1:
++                # print(i)
++                # break
+             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
+-            tokens = self.tokenize(batch, self.alg.model_tok, DEVICE)
++            # print(batch[0])
++            # print()
++            e = list_of_dicts_to_dict_of_lists(batch[1])
++            # print(e)
++            # print()
++            # assert 1==2
++            tokens = self.tokenize(batch[0], self.alg.model_tok, DEVICE)
++            # assert 1==2
+             if n_edits < self.config.max_n_edits:
+-                n_edits += self.batch_size
+-                batch_history.append(tokens)
++                n_edits += 1
++                # batch_history.append(tokens) BTP
+ 
+                 # --- perform edit ---
+                 edit_start = time()
+@@ -179,36 +198,46 @@ class zsre_trainer:
+                 # --- Compute and log metrics ---
+                 log_dict = {}
+                 with torch.no_grad():
+-                    ES_f1, ES_acc = self.metric(self.alg, tokens)
+-                    LOG.info(f'Batch {i} after Editing: F1: {ES_f1} || ACC: {ES_acc}')
+-
+-                    if (i > 0 and n_edits % self.config.grace.metric_period == 0) or (i == len(self.edit_loader) - 1):
++                    ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE))]
++                    ES_f1 = torch.tensor([x[0] for x in ES]).nanmean()
++                    # assert 1==2
++                    LOG.info(f'Batch {i} after Editing: F1: {ES_f1} || ACC: {0}')
++                    all_ES = all_ES + ES_f1
++                    
++                    if (i >= 0 and n_edits % 1 == 0) or (i == len(self.edit_loader) - 1):
+                         LOG.info(
+                             f'-------------------------    Eval all {n_edits} history edits----------------------------------')
+                         if self.config.task == 'qa':
+-                            holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE)) for e in
+-                                       iter(self.edit_holdout_loader)]
++                            holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE))]
+                             holdout_f1 = torch.tensor([x[0] for x in holdout]).nanmean()
++                            
++                            all_hold = all_hold + holdout_f1
++                            LOG.info(f'Batch {i} Generality after Editing: F1: {holdout_f1} || ACC: {0}')
++                            # assert 1==2
+                             holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
+                         else:
+                             pass
+ 
+-                        HISTORY = [self.metric(self.alg, tokens) for tokens in batch_history]
+-                        HISTORY_f1 = torch.tensor([x[0] for x in HISTORY]).nanmean()
+-                        HISTORY_acc = torch.tensor([x[1] for x in HISTORY]).nanmean()
++                        # BTP commented HIS
++                        # HISTORY = [self.metric(self.alg, tokens) for tokens in batch_history]
++                        # HISTORY_f1 = torch.tensor([x[0] for x in HISTORY]).nanmean()
++                        # HISTORY_acc = torch.tensor([x[1] for x in HISTORY]).nanmean() 
+ 
+                         UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
+                               iter(self.upstream_loader)]
+                         UP_f1 = torch.tensor([x[0] for x in UP]).nanmean()
++                        all_local = all_local + UP_f1
++                        LOG.info(f'Batch {i} Locality after Editing: F1: {UP_f1} || ACC: {0}')
+                         UP_acc = torch.tensor([x[1] for x in UP]).nanmean()
+                         # --- Log metrics and push to Weights & Biases ---
+                         log_dict["UP"] = {'UP_f1': UP_f1.item(), 'UP_acc': UP_acc.item()}  # Test Retention Rate
+-                        log_dict["HIS"] = {'HIS_f1': HISTORY_f1.item(),
+-                                           'HIS_acc': HISTORY_acc.item()}  # Error Retention Rate
+-                        log_dict["ES"] = {'ES_f1': ES_f1, 'ES_acc': ES_acc}  # Edit Success
++                        # BTP, commented HIS
++                        # log_dict["HIS"] = {'HIS_f1': HISTORY_f1.item(),
++                        #                    'HIS_acc': HISTORY_acc.item()}  # Error Retention Rate
++                        log_dict["ES"] = {'ES_f1': ES_f1.item(), 'ES_acc': 0}  # Edit Success
+                         log_dict["train_time"] = edit_time / 60  # Time it takes to make one edit
+-                        log_dict["edit"] = batch["text"]  # Raw edit input
+-                        log_dict["edit_label"] = batch["labels"]  # Raw edit label
++                        # log_dict["edit"] = batch["text"]  # Raw edit input
++                        # log_dict["edit_label"] = batch["labels"]  # Raw edit label
+                         log_dict["n_edits"] = n_edits  # Raw edit label
+                         log_dict['holdout'] = {'holdout_f1': holdout_f1.item(), 'holdout_acc': holdout_acc.item()}
+                         print(f"Number of edits {n_edits}")
+@@ -216,7 +245,7 @@ class zsre_trainer:
+                             LOG.info(f"[+eval result+]{k}: {log_dict[k]}")
+ 
+                         all_UP[n_edits] = log_dict["UP"]
+-                        all_HIS[n_edits] = log_dict["HIS"]
++                        # all_HIS[n_edits] = log_dict["HIS"] # BTP commented HIS
+                         all_HOLDOUT[n_edits] = log_dict["holdout"]
+                         all_edit_time[n_edits] = total_edit_time
+                         # VecDB_info = self.alg.get_VecDB_info()
+@@ -224,10 +253,12 @@ class zsre_trainer:
+                             # LOG.info(f"[+VecDB Info+]{k}: {VecDB_info[k]}")
+                         # all_VecDB[n_edits] = VecDB_info
+                         pass
+-
++                self.alg.model.load_state_dict(self.alg.orig_state_dict)
++        print('all_UP', all_local/n_edits, 'all_ES', all_ES/n_edits , 'all_HOLDOUT', all_hold/n_edits)
+         with open(f'log.pkl', 'wb') as f:
++            # BTP changed all_HIS to average edit success
+             pickle.dump(
+-                {'all_UP': all_UP, 'all_HIS': all_HIS, 'all_HOLDOUT': all_HOLDOUT, 'all_edit_time': all_edit_time}, f)
++                {'all_UP': all_local/n_edits, 'all_ES': all_ES/n_edits , 'all_HOLDOUT': all_hold/n_edits}, f)
+ 
+         LOG.info(f"[**Total Edit Time**] {total_edit_time / 60} mins")
+ 
+/nlsasfs/home/ttbhashini/sbishal/anaconda3/envs/mesgd/lib/python3.8/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.24.3
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loaded 1000 possible edits.
+0it [00:00, ?it/s]1it [00:21, 21.83s/it]2it [00:24, 10.48s/it]3it [00:26,  6.86s/it]4it [00:29,  5.15s/it]5it [00:31,  4.20s/it]6it [00:34,  3.64s/it]7it [00:37,  3.28s/it]8it [00:39,  3.04s/it]9it [00:42,  2.87s/it]10it [00:44,  2.76s/it]11it [00:47,  2.71s/it]12it [00:49,  2.65s/it]13it [00:52,  2.61s/it]14it [00:54,  2.58s/it]15it [00:57,  2.57s/it]16it [00:59,  2.55s/it]17it [01:02,  2.54s/it]18it [01:04,  2.53s/it]19it [01:07,  2.53s/it]20it [01:09,  2.53s/it]21it [01:12,  2.52s/it]22it [01:14,  2.52s/it]23it [01:17,  2.52s/it]24it [01:19,  2.53s/it]25it [01:22,  2.53s/it]26it [01:25,  2.53s/it]27it [01:27,  2.52s/it]28it [01:30,  2.52s/it]29it [01:32,  2.52s/it]30it [01:35,  2.53s/it]31it [01:37,  2.52s/it]32it [01:40,  2.52s/it]33it [01:42,  2.52s/it]34it [01:45,  2.52s/it]35it [01:47,  2.52s/it]36it [01:50,  2.52s/it]37it [01:52,  2.54s/it]38it [01:55,  2.53s/it]39it [01:57,  2.53s/it]40it [02:00,  2.53s/it]41it [02:02,  2.52s/it]42it [02:05,  2.52s/it]43it [02:07,  2.52s/it]44it [02:10,  2.52s/it]45it [02:12,  2.52s/it]46it [02:15,  2.52s/it]47it [02:17,  2.52s/it]48it [02:20,  2.52s/it]49it [02:22,  2.52s/it]50it [02:25,  2.53s/it]51it [02:28,  2.54s/it]52it [02:30,  2.53s/it]53it [02:33,  2.53s/it]54it [02:35,  2.53s/it]55it [02:38,  2.52s/it]56it [02:40,  2.52s/it]57it [02:43,  2.52s/it]58it [02:45,  2.52s/it]59it [02:48,  2.52s/it]60it [02:50,  2.51s/it]61it [02:53,  2.51s/it]62it [02:55,  2.51s/it]63it [02:58,  2.52s/it]64it [03:00,  2.52s/it]65it [03:03,  2.54s/it]66it [03:05,  2.55s/it]67it [03:08,  2.57s/it]68it [03:11,  2.55s/it]69it [03:13,  2.54s/it]70it [03:16,  2.53s/it]71it [03:18,  2.53s/it]72it [03:21,  2.52s/it]73it [03:23,  2.52s/it]74it [03:26,  2.52s/it]75it [03:28,  2.52s/it]76it [03:31,  2.52s/it]77it [03:33,  2.54s/it]78it [03:36,  2.54s/it]79it [03:38,  2.53s/it]80it [03:41,  2.53s/it]81it [03:43,  2.53s/it]82it [03:46,  2.53s/it]83it [03:48,  2.52s/it]84it [03:51,  2.52s/it]85it [03:53,  2.52s/it]86it [03:56,  2.51s/it]87it [03:58,  2.51s/it]88it [04:01,  2.51s/it]89it [04:04,  2.51s/it]90it [04:06,  2.51s/it]91it [04:09,  2.53s/it]92it [04:11,  2.52s/it]93it [04:14,  2.52s/it]94it [04:16,  2.52s/it]95it [04:19,  2.52s/it]96it [04:21,  2.52s/it]97it [04:24,  2.52s/it]98it [04:26,  2.51s/it]99it [04:29,  2.51s/it]100it [04:31,  2.51s/it]101it [04:34,  2.52s/it]102it [04:36,  2.52s/it]103it [04:39,  2.52s/it]104it [04:41,  2.53s/it]105it [04:44,  2.53s/it]106it [04:46,  2.52s/it]107it [04:49,  2.52s/it]108it [04:51,  2.52s/it]109it [04:54,  2.52s/it]110it [04:56,  2.52s/it]111it [04:59,  2.52s/it]112it [05:01,  2.51s/it]113it [05:04,  2.51s/it]114it [05:06,  2.51s/it]115it [05:09,  2.51s/it]116it [05:11,  2.51s/it]117it [05:14,  2.52s/it]118it [05:17,  2.52s/it]119it [05:19,  2.53s/it]120it [05:22,  2.53s/it]121it [05:24,  2.52s/it]122it [05:27,  2.52s/it]123it [05:29,  2.52s/it]124it [05:32,  2.52s/it]125it [05:34,  2.53s/it]126it [05:37,  2.52s/it]127it [05:39,  2.52s/it]128it [05:42,  2.52s/it]129it [05:44,  2.51s/it]130it [05:47,  2.52s/it]131it [05:49,  2.53s/it]132it [05:52,  2.53s/it]133it [05:54,  2.53s/it]134it [05:57,  2.52s/it]135it [05:59,  2.52s/it]136it [06:02,  2.52s/it]137it [06:05,  2.53s/it]138it [06:07,  2.52s/it]139it [06:10,  2.52s/it]140it [06:12,  2.52s/it]141it [06:15,  2.52s/it]142it [06:17,  2.52s/it]143it [06:20,  2.52s/it]144it [06:22,  2.52s/it]145it [06:25,  2.53s/it]146it [06:27,  2.53s/it]147it [06:30,  2.52s/it]148it [06:32,  2.52s/it]149it [06:35,  2.53s/it]150it [06:37,  2.52s/it]151it [06:40,  2.52s/it]152it [06:42,  2.52s/it]153it [06:45,  2.52s/it]154it [06:47,  2.52s/it]155it [06:50,  2.52s/it]156it [06:52,  2.52s/it]157it [06:55,  2.52s/it]158it [06:57,  2.53s/it]159it [07:00,  2.53s/it]160it [07:03,  2.53s/it]161it [07:05,  2.52s/it]162it [07:08,  2.52s/it]163it [07:10,  2.52s/it]164it [07:13,  2.52s/it]165it [07:15,  2.52s/it]166it [07:18,  2.52s/it]167it [07:20,  2.52s/it]168it [07:23,  2.53s/it]169it [07:25,  2.53s/it]170it [07:28,  2.53s/it]171it [07:30,  2.54s/it]172it [07:33,  2.54s/it]173it [07:35,  2.53s/it]174it [07:38,  2.52s/it]175it [07:40,  2.52s/it]176it [07:43,  2.52s/it]177it [07:45,  2.52s/it]178it [07:48,  2.52s/it]179it [07:50,  2.52s/it]180it [07:53,  2.53s/it]181it [07:56,  2.54s/it]182it [07:58,  2.54s/it]183it [08:01,  2.53s/it]184it [08:03,  2.54s/it]185it [08:06,  2.53s/it]186it [08:08,  2.53s/it]187it [08:11,  2.52s/it]188it [08:13,  2.52s/it]189it [08:16,  2.52s/it]190it [08:18,  2.51s/it]191it [08:21,  2.51s/it]192it [08:23,  2.51s/it]193it [08:26,  2.51s/it]194it [08:28,  2.52s/it]195it [08:31,  2.52s/it]196it [08:33,  2.53s/it]197it [08:36,  2.54s/it]198it [08:38,  2.54s/it]199it [08:41,  2.53s/it]200it [08:43,  2.53s/it]201it [08:46,  2.52s/it]202it [08:49,  2.52s/it]203it [08:51,  2.52s/it]204it [08:54,  2.52s/it]205it [08:56,  2.52s/it]206it [08:59,  2.52s/it]207it [09:01,  2.52s/it]208it [09:04,  2.52s/it]209it [09:06,  2.54s/it]210it [09:09,  2.54s/it]211it [09:11,  2.54s/it]212it [09:14,  2.54s/it]213it [09:16,  2.53s/it]214it [09:19,  2.54s/it]215it [09:21,  2.54s/it]216it [09:24,  2.54s/it]217it [09:27,  2.54s/it]218it [09:29,  2.56s/it]219it [09:32,  2.57s/it]220it [09:34,  2.56s/it]221it [09:37,  2.54s/it]222it [09:39,  2.53s/it]223it [09:42,  2.53s/it]224it [09:44,  2.54s/it]225it [09:47,  2.54s/it]226it [09:49,  2.53s/it]227it [09:52,  2.53s/it]228it [09:54,  2.52s/it]229it [09:57,  2.52s/it]230it [09:59,  2.52s/it]231it [10:02,  2.52s/it]232it [10:04,  2.51s/it]233it [10:07,  2.52s/it]234it [10:10,  2.51s/it]235it [10:12,  2.52s/it]236it [10:15,  2.51s/it]237it [10:17,  2.52s/it]238it [10:20,  2.52s/it]239it [10:22,  2.53s/it]240it [10:25,  2.53s/it]241it [10:27,  2.53s/it]242it [10:30,  2.52s/it]243it [10:32,  2.53s/it]244it [10:35,  2.53s/it]245it [10:37,  2.52s/it]246it [10:40,  2.52s/it]247it [10:42,  2.52s/it]248it [10:45,  2.51s/it]249it [10:47,  2.51s/it]250it [10:50,  2.51s/it]251it [10:52,  2.51s/it]252it [10:55,  2.53s/it]253it [10:57,  2.53s/it]254it [11:00,  2.52s/it]255it [11:02,  2.52s/it]256it [11:05,  2.52s/it]257it [11:08,  2.52s/it]258it [11:10,  2.52s/it]259it [11:13,  2.52s/it]260it [11:15,  2.52s/it]261it [11:18,  2.52s/it]262it [11:20,  2.52s/it]263it [11:23,  2.51s/it]264it [11:25,  2.51s/it]265it [11:28,  2.52s/it]266it [11:30,  2.55s/it]267it [11:33,  2.56s/it]268it [11:35,  2.57s/it]269it [11:38,  2.56s/it]270it [11:41,  2.55s/it]271it [11:43,  2.54s/it]272it [11:46,  2.54s/it]273it [11:48,  2.53s/it]274it [11:51,  2.53s/it]275it [11:53,  2.53s/it]276it [11:56,  2.52s/it]277it [11:58,  2.52s/it]278it [12:01,  2.53s/it]279it [12:03,  2.53s/it]280it [12:06,  2.53s/it]281it [12:08,  2.53s/it]282it [12:11,  2.53s/it]283it [12:13,  2.53s/it]284it [12:16,  2.52s/it]285it [12:19,  2.61s/it]286it [12:21,  2.58s/it]287it [12:24,  2.56s/it]288it [12:26,  2.55s/it]289it [12:29,  2.54s/it]290it [12:31,  2.54s/it]291it [12:34,  2.54s/it]292it [12:36,  2.53s/it]293it [12:39,  2.53s/it]294it [12:41,  2.53s/it]295it [12:44,  2.53s/it]296it [12:46,  2.54s/it]297it [12:49,  2.54s/it]298it [12:52,  2.53s/it]299it [12:54,  2.53s/it]300it [12:57,  2.53s/it]301it [12:59,  2.52s/it]302it [13:02,  2.52s/it]303it [13:04,  2.52s/it]304it [13:07,  2.52s/it]305it [13:09,  2.52s/it]306it [13:12,  2.52s/it]307it [13:14,  2.53s/it]308it [13:17,  2.53s/it]309it [13:19,  2.52s/it]310it [13:22,  2.52s/it]311it [13:24,  2.52s/it]312it [13:27,  2.52s/it]313it [13:29,  2.52s/it]314it [13:32,  2.53s/it]315it [13:34,  2.54s/it]316it [13:37,  2.53s/it]317it [13:40,  2.53s/it]318it [13:42,  2.53s/it]319it [13:45,  2.54s/it]320it [13:47,  2.54s/it]321it [13:50,  2.54s/it]322it [13:52,  2.53s/it]323it [13:55,  2.53s/it]324it [13:57,  2.54s/it]325it [14:00,  2.54s/it]326it [14:02,  2.54s/it]327it [14:05,  2.54s/it]328it [14:07,  2.53s/it]329it [14:10,  2.53s/it]330it [14:12,  2.53s/it]331it [14:15,  2.52s/it]332it [14:18,  2.52s/it]333it [14:20,  2.53s/it]334it [14:23,  2.53s/it]335it [14:25,  2.52s/it]336it [14:28,  2.52s/it]337it [14:30,  2.52s/it]338it [14:33,  2.52s/it]339it [14:35,  2.52s/it]340it [14:38,  2.54s/it]341it [14:40,  2.53s/it]342it [14:43,  2.53s/it]343it [14:45,  2.52s/it]344it [14:48,  2.52s/it]345it [14:50,  2.53s/it]346it [14:53,  2.54s/it]347it [14:55,  2.53s/it]348it [14:58,  2.53s/it]349it [15:00,  2.52s/it]350it [15:03,  2.52s/it]351it [15:06,  2.52s/it]352it [15:08,  2.53s/it]353it [15:11,  2.53s/it]354it [15:13,  2.53s/it]355it [15:16,  2.53s/it]356it [15:18,  2.52s/it]357it [15:21,  2.52s/it]358it [15:23,  2.52s/it]359it [15:26,  2.53s/it]360it [15:28,  2.53s/it]361it [15:31,  2.52s/it]362it [15:33,  2.53s/it]363it [15:36,  2.52s/it]364it [15:38,  2.52s/it]365it [15:41,  2.52s/it]366it [15:43,  2.52s/it]367it [15:46,  2.53s/it]368it [15:48,  2.53s/it]369it [15:51,  2.53s/it]370it [15:54,  2.55s/it]371it [15:56,  2.56s/it]372it [15:59,  2.56s/it]373it [16:01,  2.55s/it]374it [16:04,  2.54s/it]375it [16:06,  2.53s/it]376it [16:09,  2.52s/it]377it [16:11,  2.52s/it]378it [16:14,  2.52s/it]379it [16:16,  2.51s/it]380it [16:19,  2.51s/it]381it [16:21,  2.51s/it]382it [16:24,  2.51s/it]383it [16:26,  2.51s/it]384it [16:29,  2.52s/it]385it [16:31,  2.52s/it]386it [16:34,  2.52s/it]387it [16:36,  2.53s/it]388it [16:39,  2.53s/it]389it [16:41,  2.52s/it]390it [16:44,  2.52s/it]391it [16:46,  2.51s/it]392it [16:49,  2.51s/it]393it [16:52,  2.51s/it]394it [16:54,  2.51s/it]395it [16:57,  2.51s/it]396it [16:59,  2.52s/it]397it [17:02,  2.51s/it]398it [17:04,  2.51s/it]399it [17:07,  2.52s/it]400it [17:09,  2.52s/it]401it [17:12,  2.52s/it]402it [17:14,  2.51s/it]403it [17:17,  2.51s/it]404it [17:19,  2.51s/it]405it [17:22,  2.51s/it]406it [17:24,  2.51s/it]407it [17:27,  2.51s/it]408it [17:29,  2.51s/it]409it [17:32,  2.51s/it]410it [17:34,  2.52s/it]411it [17:37,  2.51s/it]412it [17:39,  2.52s/it]413it [17:42,  2.52s/it]414it [17:44,  2.52s/it]415it [17:47,  2.52s/it]416it [17:49,  2.51s/it]417it [17:52,  2.51s/it]418it [17:54,  2.51s/it]419it [17:57,  2.51s/it]420it [17:59,  2.51s/it]421it [18:02,  2.51s/it]422it [18:04,  2.51s/it]423it [18:07,  2.51s/it]424it [18:09,  2.51s/it]425it [18:12,  2.52s/it]426it [18:15,  2.54s/it]427it [18:17,  2.53s/it]428it [18:20,  2.52s/it]429it [18:22,  2.52s/it]430it [18:25,  2.51s/it]431it [18:27,  2.51s/it]432it [18:30,  2.51s/it]433it [18:32,  2.51s/it]434it [18:35,  2.52s/it]435it [18:37,  2.51s/it]436it [18:40,  2.51s/it]437it [18:42,  2.51s/it]438it [18:45,  2.51s/it]439it [18:47,  2.54s/it]440it [18:50,  2.53s/it]441it [18:52,  2.52s/it]442it [18:55,  2.52s/it]443it [18:57,  2.52s/it]444it [19:00,  2.52s/it]445it [19:02,  2.52s/it]446it [19:05,  2.52s/it]447it [19:07,  2.51s/it]448it [19:10,  2.51s/it]449it [19:12,  2.52s/it]450it [19:15,  2.52s/it]451it [19:17,  2.53s/it]452it [19:20,  2.54s/it]453it [19:23,  2.54s/it]454it [19:25,  2.53s/it]455it [19:28,  2.53s/it]456it [19:30,  2.54s/it]457it [19:33,  2.54s/it]458it [19:35,  2.54s/it]459it [19:38,  2.53s/it]460it [19:40,  2.53s/it]461it [19:43,  2.53s/it]462it [19:45,  2.53s/it]463it [19:48,  2.53s/it]464it [19:50,  2.54s/it]465it [19:53,  2.54s/it]466it [19:56,  2.54s/it]467it [19:58,  2.53s/it]468it [20:01,  2.55s/it]469it [20:03,  2.54s/it]470it [20:06,  2.54s/it]471it [20:08,  2.53s/it]472it [20:11,  2.52s/it]473it [20:13,  2.52s/it]474it [20:16,  2.52s/it]475it [20:18,  2.52s/it]476it [20:21,  2.51s/it]477it [20:23,  2.51s/it]478it [20:26,  2.52s/it]479it [20:28,  2.52s/it]480it [20:31,  2.52s/it]481it [20:33,  2.52s/it]482it [20:36,  2.52s/it]483it [20:38,  2.52s/it]484it [20:41,  2.52s/it]485it [20:43,  2.51s/it]486it [20:46,  2.51s/it]487it [20:48,  2.51s/it]488it [20:51,  2.52s/it]489it [20:53,  2.52s/it]490it [20:56,  2.52s/it]491it [20:59,  2.52s/it]492it [21:01,  2.53s/it]493it [21:04,  2.53s/it]494it [21:06,  2.53s/it]495it [21:09,  2.52s/it]496it [21:11,  2.52s/it]497it [21:14,  2.52s/it]498it [21:16,  2.53s/it]499it [21:19,  2.53s/it]500it [21:21,  2.52s/it]501it [21:24,  2.52s/it]502it [21:26,  2.52s/it]503it [21:29,  2.52s/it]504it [21:31,  2.52s/it]505it [21:34,  2.52s/it]506it [21:36,  2.54s/it]507it [21:39,  2.53s/it]508it [21:41,  2.52s/it]509it [21:44,  2.52s/it]510it [21:46,  2.51s/it]511it [21:49,  2.51s/it]512it [21:51,  2.52s/it]513it [21:54,  2.53s/it]514it [21:57,  2.53s/it]515it [21:59,  2.53s/it]516it [22:02,  2.52s/it]517it [22:04,  2.52s/it]518it [22:07,  2.51s/it]519it [22:09,  2.52s/it]520it [22:12,  2.52s/it]521it [22:14,  2.52s/it]522it [22:17,  2.52s/it]523it [22:19,  2.51s/it]524it [22:22,  2.51s/it]525it [22:24,  2.51s/it]526it [22:27,  2.52s/it]527it [22:29,  2.52s/it]528it [22:32,  2.52s/it]529it [22:34,  2.53s/it]530it [22:37,  2.52s/it]531it [22:39,  2.52s/it]532it [22:42,  2.52s/it]533it [22:44,  2.53s/it]534it [22:47,  2.53s/it]535it [22:49,  2.52s/it]536it [22:52,  2.52s/it]537it [22:54,  2.52s/it]538it [22:57,  2.53s/it]539it [23:00,  2.53s/it]540it [23:02,  2.53s/it]541it [23:05,  2.52s/it]542it [23:07,  2.52s/it]543it [23:10,  2.53s/it]544it [23:12,  2.53s/it]545it [23:15,  2.53s/it]546it [23:17,  2.54s/it]547it [23:20,  2.53s/it]548it [23:22,  2.52s/it]549it [23:25,  2.52s/it]550it [23:27,  2.51s/it]551it [23:30,  2.51s/it]552it [23:32,  2.51s/it]553it [23:35,  2.52s/it]554it [23:37,  2.53s/it]555it [23:40,  2.53s/it]556it [23:43,  2.53s/it]557it [23:45,  2.52s/it]558it [23:48,  2.52s/it]559it [23:50,  2.53s/it]560it [23:53,  2.53s/it]561it [23:55,  2.52s/it]562it [23:58,  2.52s/it]563it [24:00,  2.52s/it]564it [24:03,  2.51s/it]565it [24:05,  2.51s/it]566it [24:08,  2.51s/it]567it [24:10,  2.51s/it]568it [24:13,  2.52s/it]569it [24:15,  2.52s/it]570it [24:18,  2.51s/it]571it [24:20,  2.51s/it]572it [24:23,  2.53s/it]573it [24:25,  2.52s/it]574it [24:28,  2.52s/it]575it [24:30,  2.52s/it]576it [24:33,  2.52s/it]577it [24:35,  2.52s/it]578it [24:38,  2.52s/it]579it [24:40,  2.52s/it]580it [24:43,  2.51s/it]581it [24:45,  2.51s/it]582it [24:48,  2.51s/it]583it [24:50,  2.52s/it]584it [24:53,  2.52s/it]585it [24:56,  2.52s/it]586it [24:58,  2.53s/it]587it [25:01,  2.53s/it]588it [25:03,  2.52s/it]589it [25:06,  2.52s/it]590it [25:08,  2.52s/it]591it [25:11,  2.51s/it]592it [25:13,  2.51s/it]593it [25:16,  2.51s/it]594it [25:18,  2.51s/it]595it [25:21,  2.51s/it]596it [25:23,  2.52s/it]597it [25:26,  2.52s/it]598it [25:28,  2.52s/it]599it [25:31,  2.53s/it]600it [25:33,  2.53s/it]601it [25:36,  2.53s/it]602it [25:38,  2.52s/it]603it [25:41,  2.52s/it]604it [25:43,  2.51s/it]605it [25:46,  2.51s/it]606it [25:48,  2.51s/it]607it [25:51,  2.52s/it]608it [25:53,  2.52s/it]609it [25:56,  2.52s/it]610it [25:59,  2.53s/it]611it [26:01,  2.54s/it]612it [26:04,  2.54s/it]613it [26:06,  2.55s/it]614it [26:09,  2.54s/it]615it [26:11,  2.53s/it]616it [26:14,  2.52s/it]617it [26:16,  2.52s/it]618it [26:19,  2.51s/it]619it [26:21,  2.51s/it]620it [26:24,  2.51s/it]621it [26:26,  2.51s/it]622it [26:29,  2.51s/it]623it [26:31,  2.51s/it]624it [26:34,  2.52s/it]625it [26:36,  2.52s/it]626it [26:39,  2.52s/it]627it [26:41,  2.53s/it]628it [26:44,  2.52s/it]629it [26:46,  2.52s/it]630it [26:49,  2.51s/it]631it [26:51,  2.51s/it]632it [26:54,  2.51s/it]633it [26:56,  2.51s/it]634it [26:59,  2.51s/it]635it [27:02,  2.55s/it]636it [27:04,  2.53s/it]637it [27:07,  2.52s/it]638it [27:09,  2.52s/it]639it [27:12,  2.53s/it]640it [27:14,  2.54s/it]641it [27:17,  2.53s/it]642it [27:19,  2.52s/it]643it [27:22,  2.52s/it]644it [27:24,  2.52s/it]645it [27:27,  2.52s/it]646it [27:29,  2.51s/it]647it [27:32,  2.52s/it]648it [27:34,  2.52s/it]649it [27:37,  2.52s/it]650it [27:39,  2.52s/it]651it [27:42,  2.51s/it]652it [27:44,  2.51s/it]653it [27:47,  2.53s/it]654it [27:49,  2.52s/it]655it [27:52,  2.52s/it]656it [27:54,  2.52s/it]657it [27:57,  2.52s/it]658it [27:59,  2.51s/it]659it [28:02,  2.51s/it]660it [28:04,  2.51s/it]661it [28:07,  2.51s/it]662it [28:10,  2.51s/it]663it [28:12,  2.51s/it]664it [28:15,  2.51s/it]665it [28:17,  2.52s/it]666it [28:20,  2.53s/it]667it [28:22,  2.52s/it]668it [28:25,  2.52s/it]669it [28:27,  2.52s/it]670it [28:30,  2.52s/it]671it [28:32,  2.52s/it]672it [28:35,  2.52s/it]673it [28:37,  2.52s/it]674it [28:40,  2.51s/it]675it [28:42,  2.51s/it]676it [28:45,  2.51s/it]677it [28:47,  2.51s/it]678it [28:50,  2.51s/it]679it [28:52,  2.53s/it]680it [28:55,  2.52s/it]681it [28:57,  2.52s/it]682it [29:00,  2.51s/it]683it [29:02,  2.52s/it]684it [29:05,  2.51s/it]685it [29:07,  2.51s/it]686it [29:10,  2.51s/it]687it [29:12,  2.52s/it]688it [29:15,  2.52s/it]689it [29:17,  2.51s/it]690it [29:20,  2.51s/it]691it [29:23,  2.51s/it]692it [29:25,  2.51s/it]693it [29:28,  2.53s/it]694it [29:30,  2.53s/it]695it [29:33,  2.53s/it]696it [29:35,  2.53s/it]697it [29:38,  2.54s/it]698it [29:40,  2.55s/it]699it [29:43,  2.54s/it]700it [29:45,  2.53s/it]701it [29:48,  2.53s/it]702it [29:50,  2.52s/it]703it [29:53,  2.53s/it]704it [29:55,  2.52s/it]705it [29:58,  2.52s/it]706it [30:00,  2.53s/it]707it [30:03,  2.53s/it]
