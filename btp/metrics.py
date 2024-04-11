@@ -130,6 +130,17 @@ def F1_ACC(alg, batch):
         preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
         preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
         
+#         decode_preds = alg.model_tok.batch_decode(preds,skip_special_tokens=True)
+#     # print(decode_preds)
+#         gold_labels = batch['labels']
+#         gold_labels = gold_labels.masked_fill(gold_labels == -100,alg.model_tok.pad_token_id)
+#         decode_labels = alg.model_tok.batch_decode(gold_labels,skip_special_tokens=True)
+        
+#         print (decode_labels)
+        
+#         print (decode_preds)
+        
+#         assert 1==2
         
         f1 = F1(preds, batch, alg.model_tok)
         acc = 1.0

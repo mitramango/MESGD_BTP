@@ -11,19 +11,17 @@ from utils import *
 
 LOG = logging.getLogger(__name__)
 
+
 class qa(torch.nn.Module):
-    def __init__(self, model,model_tok):
+    def __init__(self, model,model_tok,copy_of_state_dict):
         super(qa, self).__init__()
         
         self.model = model
-        self.orig_state_dict = deepcopy(model.state_dict())
+        self.orig_state_dict = copy_of_state_dict
         '''Load Tokenizer
         '''
         self.model_tok = model_tok
-
-        '''Parameters to be optimized
-        '''
-        self.opt_params = self.optim_parameters()
+        
         pass
 
 
@@ -32,6 +30,7 @@ class qa(torch.nn.Module):
         return lora_params
 
     def edit(self, tokens, num_steps = 16, opt = "Adam"):
+        # self.model = torch.nn.DataParallel(self.model)
         if opt == "Adam":
             optimizer = torch.optim.Adam(self.optim_parameters(), 1e-5)
         else:

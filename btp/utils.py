@@ -78,14 +78,41 @@ def get_shape(p, model):
 def get_logits(x):
     return x.logits if hasattr(x, "logits") else x
 
+def tokenize_phi(batch, tokenizer, device, test=False):
+    prompt, label = batch["text"], batch["labels"]
+    mask_token = -100  # ignore_index of CrossEntropyLoss
+    if test or not label:
+        tokenizer.padding_side = 'left'
+        full_prompt = [f"Instruct:{p}\nOutput:" for p, l in zip(prompt, label)]
+        tokens = tokenizer(full_prompt, return_tensors="pt", padding=True, truncation=True)
+        tokens["labels"] = tokenizer(list(label), return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        tokenizer.padding_side = 'right'
+        # tokens["labels"][tokens["input_ids"] == tokenizer.pad_token_id] = mask_token
+    else:
+        # tokenizer.padding_side = 'right'
+        full_prompt = [f"Instruct:{p}\nOutput:{l}" for p, l in zip(prompt, label)]
+        # full_prompt = [f"{p} {l} {tokenizer.eos_token}" for p, l in zip(prompt, label)]
+        prompt_ids = tokenizer(list(prompt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        num_prompt_toks = [int((i != tokenizer.pad_token_id).sum()) for i in prompt_ids]
+        tokens = tokenizer(full_prompt, return_tensors="pt", padding=True, truncation=True)
+        tokens["labels"] = tokens["input_ids"].clone()
+        for i in range(len(prompt)):
+            tokens["labels"][i][:num_prompt_toks[i]] = mask_token
+
+        tokens["labels"][tokens["input_ids"] == tokenizer.pad_token_id] = mask_token  # What is this doing?
+        # tokenizer.padding_side = 'left'
+    tokens = {f"{k1}": v1.to(device) for k1, v1 in tokens.items()}
+    return tokens
 
 def tokenize_gpt(batch, tokenizer, device, test=False):
     prompt, label = batch["text"], batch["labels"]
     mask_token = -100  # ignore_index of CrossEntropyLoss
     if test or not label:
+        # tokenizer.padding_side = 'left'
         tokens = tokenizer(list(prompt), return_tensors="pt", padding=True, truncation=True)
         tokens["labels"] = tokenizer(list(label), return_tensors="pt", padding=True, truncation=True)["input_ids"]
         # tokens["labels"][tokens["input_ids"] == tokenizer.pad_token_id] = mask_token
+        # tokenizer.padding_side = 'right'
     else:
         # tokenizer.padding_side = 'right'
         full_prompt = [f"{p} {l} <|endoftext|>" for p, l in zip(prompt, label)]

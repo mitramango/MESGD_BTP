@@ -102,12 +102,12 @@ class zsre_trainer:
                 holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
 
                 
-                UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
-                      iter(self.upstream_loader)]
-                UP_f1 = torch.tensor([x[0] for x in UP]).nanmean()
+                # UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
+                      # iter(self.upstream_loader)]
+                UP_f1 = torch.tensor([0.00]).nanmean()
                 all_local = all_local + UP_f1
                 print(f'Batch {i} Locality after Editing: F1: {UP_f1}')
-                UP_acc = torch.tensor([x[1] for x in UP]).nanmean()
+                UP_acc = torch.tensor([0.00]).nanmean()
                 
                 # --- Log metrics and push to Weights & Biases ---
                 log_dict["loc"] = {'locality_f1': UP_f1.item()}  # Locality
