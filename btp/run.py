@@ -21,64 +21,61 @@ LOG = logging.getLogger(__name__)
 
 def run():
 
-    # # T5-Small
-    # model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
-    # tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
-    # tokenize = tokenize_qa
     
+    model_name = "t5small" # this should come from arguments
     
-    # # GPT-2
-    # model = GPT2LMHeadModel.from_pretrained("gpt2")
-    # tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
-    # tokenizer.pad_token_id = tokenizer.eos_token_id
-    # tokenize = tokenize_gpt
+    if model_name == "t5small":
+        # T5-Small
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-small-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
+        tokenize = tokenize_qa
     
-    # # Llama 2 directly from HuggingFace 
-    # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
-    # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    elif model_name == "gpt2": 
+        # GPT-2
+        model = GPT2LMHeadModel.from_pretrained("gpt2")
+        tokenizer = GPT2Tokenizer.from_pretrained("gpt2",padding_side='left')
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenize = tokenize_gpt
     
-    # # Llama 2 
-    # tokenizer = LlamaTokenizer.from_pretrained("./models/llama-2-7b-hf")
-    # model = LlamaForCausalLM.from_pretrained("./models/llama-2-7b-hf")
+    elif model_name == "llama2":
+        # Llama 2 directly from HuggingFace 
+        model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", torch_dtype=torch.bfloat16)
+        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf", padding_side='left')
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenize = tokenize_gpt
     
-    # # Llama 2 Chat directly from HuggingFace 
-    # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-    # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
-    # tokenizer.pad_token_id = tokenizer.eos_token_id
-    # tokenize = tokenize_gpt
+    elif model_name == "llama2chat":
+        # Llama 2 Chat directly from HuggingFace
+        model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chathf",torch_dtype=torch.bfloat16)
+        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", padding_side='left')
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenize = tokenize_gpt
     
-    # # Llama 2 Chat
-    # tokenizer = LlamaTokenizer.from_pretrained("./models/llama-2-7b-chat-hf")
-    # model = LlamaForCausalLM.from_pretrained("./models/llama-2-7b-chat-hf")
-
-    # # Mistral 7B
-    # base_model = "mistralai/Mistral-7B-v0.1"
-    # bnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16,)
-    # model = AutoModelForCausalLM.from_pretrained(
-    #         base_model, torch_dtype=torch.bfloat16,quantization_config=bnb_config
-    # )
-    # tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
-    # tokenizer.padding_side = 'right'
-    # tokenizer.pad_token = tokenizer.eos_token
-    # tokenizer.add_eos_token = True
-    # tokenizer.add_bos_token, tokenizer.add_eos_token
-    # tokenize = tokenize_gpt
+    elif model_name == "mistral":        
+        # Mistral 7B
+        base_model = "mistralai/Mistral-7B-v0.1"
+        model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=torch.bfloat16)
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_model,
+            model_max_length=512,
+            padding_side="left",
+            add_eos_token=True,
+            add_bos_token=True,)
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenize = tokenize_mistral
     
-    # Phi-2
-    model = AutoModelForCausalLM.from_pretrained("microsoft/phi-2", torch_dtype=torch.bfloat16,trust_remote_code=True)
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
-    tokenize = tokenize_phi
-    tokenizer.pad_token_id = tokenizer.eos_token_id
+    elif model_name == "phi2":
+        # Phi-2
+        model = AutoModelForCausalLM.from_pretrained("microsoft/phi-2", torch_dtype=torch.bfloat16,trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
+        tokenize = tokenize_phi
+        tokenizer.pad_token_id = tokenizer.eos_token_id
     
-    DEVICE1 = torch.device("cuda:0") #if torch.cuda.is_available() else torch.device("cpu")
-    # DEVICE2 = torch.device("cuda:1") #if torch.cuda.is_available() else torch.device("cpu")
+    DEVICE1 = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     copy_of_state_dict = deepcopy(model.state_dict()) 
     
     model.to(DEVICE1)
-    
-    # print(next(model.parameters()).is_cuda)
-    
-    # assert 1==2
+
     param_size = 0
     for param in model.parameters():
         param_size += param.nelement() * param.element_size()
@@ -96,13 +93,11 @@ def run():
     from metrics import F1_ACC, is_qa_error
     upstream = NQ()
     edits = zsRE_balanced(split="edit", n_edits=1000)
-    # edit_holdouts = zsRE_balanced(split="holdout", n_edits=1000)
 
     '''Get Loaders
     '''
     batch_size = 1 #BTP
     edit_loader = DataLoader(edits, batch_size=batch_size, shuffle=False)
-    # edit_holdout_loader = DataLoader(edit_holdouts, batch_size=batch_size, shuffle=False)
     upstream_loader = DataLoader(upstream, batch_size=100, shuffle=False)
     
     '''Define Metrics
@@ -110,21 +105,17 @@ def run():
     metric = F1_ACC # Measure QA F1
     is_error = is_qa_error
     
-
     from algs.zsre import qa
 
     alg = qa(model, tokenizer, copy_of_state_dict)
-    # alg.to(DEVICE1)
-    
-    # assert 1==2
 
     trainer = zsre_trainer(alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
     
-    file_path = "results_phi2.txt"
+    file_path = f"results_{model_name}_new.txt"
     for i in range(6):
         # continue
         torch.cuda.empty_cache()
-        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam")
+        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam", model_name)
         with open(file_path, "a") as file:
             file.write("\n")
             file.write(f"num_steps = {2**i}, opt = Adam:" + "\n") 
@@ -133,7 +124,7 @@ def run():
         # if i!=5:
         #     continue
         torch.cuda.empty_cache()
-        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "SGD")
+        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "SGD", model_name)
         with open(file_path, "a") as file:
             file.write("\n")
             file.write(f"num_steps = {2**i}, opt = SGD:" + "\n") 

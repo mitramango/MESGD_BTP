@@ -56,7 +56,7 @@ class zsre_trainer:
             LOG.info(
                 f'Original average performance on upstream set: F1: {upstream_f1.item():.4f} || ACC: {upstream_acc.item():.4f}')
 
-    def run_edit(self, num_steps = 16, opt = "Adam"):
+    def run_edit(self, num_steps = 16, opt = "Adam", model_name):
         # --- editing start ---
         ''' **BTP** commented self.alg.enable_melo()'''
         n_edits = 0
@@ -89,13 +89,13 @@ class zsre_trainer:
             with torch.no_grad():
                 print(f'-------------------------    {n_edits}   ----------------------------------')
                 # ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE))] #T5
-                ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE, test=True))] #GPT2
+                ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE, test=True), model_name)] #GPT2
                 ES_f1 = torch.tensor([x[0] for x in ES]).nanmean()
                 print(f'Batch {i} Edit Success: F1: {ES_f1}')
                 all_ES = all_ES + ES_f1
                 # assert 1==2
                 
-                holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True))]
+                holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True), model_name)]
                 holdout_f1 = torch.tensor([x[0] for x in holdout]).nanmean()
                 all_hold = all_hold + holdout_f1
                 print(f'Batch {i} Generality after Editing: F1: {holdout_f1}')

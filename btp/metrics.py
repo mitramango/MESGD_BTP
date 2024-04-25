@@ -121,14 +121,15 @@ def PPL(alg, batch):
 
 
 
-def F1_ACC(alg, batch):
+def F1_ACC(alg, batch, model_name):
     try:
-        # # T5
-        # preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
-        
-        # # GPT2
-        preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
-        preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
+        if model_name == "t5small":
+            # T5
+            preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
+        else:
+            # # GPT2
+            preds = alg.generate(batch["input_ids"], pad_token_id=alg.model_tok.pad_token_id, max_new_tokens=20).squeeze(1) 
+            preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
         
 #         decode_preds = alg.model_tok.batch_decode(preds,skip_special_tokens=True)
 #     # print(decode_preds)
