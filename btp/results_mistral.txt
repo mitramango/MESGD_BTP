@@ -1,0 +1,3 @@
+
+num_steps = 32, opt = Adam:
+Locality: 0.0, Edit Success: 0.14296607673168182, Generality: 0.09908106178045273, Time: 71.14766192436218 mins

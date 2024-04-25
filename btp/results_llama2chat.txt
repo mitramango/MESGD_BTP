@@ -1,0 +1,36 @@
+
+num_steps = 1, opt = Adam:
+Locality: 0.0, Edit Success: 0.03200402855873108, Generality: 0.021868089213967323, Time: 2.137646003564199 mins
+
+num_steps = 2, opt = Adam:
+Locality: 0.0, Edit Success: 0.03513873368501663, Generality: 0.026732128113508224, Time: 4.21438368956248 mins
+
+num_steps = 4, opt = Adam:
+Locality: 0.0, Edit Success: 0.03157133236527443, Generality: 0.024623068049550056, Time: 8.254835259914397 mins
+
+num_steps = 8, opt = Adam:
+Locality: 0.0, Edit Success: 0.03265434131026268, Generality: 0.02313348464667797, Time: 16.534916317462923 mins
+
+num_steps = 16, opt = Adam:
+Locality: 0.0, Edit Success: 0.032257676124572754, Generality: 0.027848834171891212, Time: 33.19331792195638 mins
+
+num_steps = 32, opt = Adam:
+Locality: 0.0, Edit Success: 0.03485611453652382, Generality: 0.02733919769525528, Time: 66.2498394091924 mins
+
+num_steps = 1, opt = SGD:
+Locality: 0.0, Edit Success: 0.029951805248856544, Generality: 0.024335693567991257, Time: 1.9823253711064657 mins
+
+num_steps = 2, opt = SGD:
+Locality: 0.0, Edit Success: 0.031944639980793, Generality: 0.02387971803545952, Time: 3.9360987583796185 mins
+
+num_steps = 4, opt = SGD:
+Locality: 0.0, Edit Success: 0.029139574617147446, Generality: 0.023324044421315193, Time: 7.787808152039846 mins
+
+num_steps = 8, opt = SGD:
+Locality: 0.0, Edit Success: 0.03354246914386749, Generality: 0.026500685140490532, Time: 15.622017435232799 mins
+
+num_steps = 16, opt = SGD:
+Locality: 0.0, Edit Success: 0.03342239931225777, Generality: 0.022700462490320206, Time: 31.22598181962967 mins
+
+num_steps = 32, opt = SGD:
+Locality: 0.0, Edit Success: 0.03035166673362255, Generality: 0.024822011590003967, Time: 62.43835614919662 mins
