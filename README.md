@@ -1,14 +1,8 @@
 <!-- omit in toc -->
-# MELO: Enhancing Model Editing with Neuron-Indexd Dynamic LoRA
-This repo contains the source code of our proposed MELO, a plug-in model editing method, which routes models' behavoir by dynamically indexing LoRA blocks according to a inner vector databse. Seamlessly integrated in [PEFT](https://github.com/huggingface/peft), MELO supports multiple LLMs such as BERT, T5 and GPT. 
+# MESGD: Model Editing with Stochastic Gradient Descent
 
+This repo contains the source code of our proposed MESGD, a model editing method based on the SGD and Adam optimizers.
 <!-- omit in toc -->
-## Updates
-- **2023/12/19:** Repo has been transferred to [ECNU-ICALK/MELO](https://github.com/ECNU-ICALK/MELO) (Organization Account) 🔔
-- **2023/12/09:** <strong> Our work has been accepted by AAAI 2024</strong> :fire::fire: 
-- **2023/7/16:** Experiments with multiple LLMs on different editing tasks. :art:
-- **2023/6/24:** Inner vector databse that builds accurate editing scope. :confetti_ball:	
-- **2023/6/08:** Support dynamic LoRA block Loding. :star:
 
 <!-- omit in toc -->
 ## Table of Contents
@@ -39,6 +33,9 @@ Comparison of MELO to prior editing methods on sequential editing tasks. Note th
 ![table](./figures/table.png)
 
 ## Prepare Environments
+
+Run the setup.sh file to setup the required environments.
+
 Required CUDA environment and library dependencies are listed in: 
 ```
 requirements.txt
@@ -52,34 +49,16 @@ pip install -e .
 ```
 Detailed implementation of MELO is in `./peft_egg/src/tuners/melo.py`
 ## Prepare Datasets
-The zsRE experiments use data linked by the [MEND](https://github.com/eric-mitchell/mend) repository. Download the data for NQ and zsRE from their Google Drive link and unzip each sub-directory into ./melo/data. SCOTUS and Hallucination data are loaded through huggingface.
+The zsRE experiments use data linked by the [MEND](https://github.com/eric-mitchell/mend) repository. Run the ``` download.sh ``` script to download and unzip the data into the correct directories.
 
-## Quick Start
-The location of inner vector database and dynamic LoRA target modules can be modified in `./melo/model/config`
-
-### Editing GPT2-XL on Hallucination with MELO
+### Editing T5 on zsRE with MESGD
 ```
-cd melo
-python run.py +alg=lora +experiment=hallucination +model=gpt2xl
-```
-
-### Editing BERT on SCOTUS with MELO
-```
-cd melo
-python run.py +alg=lora +experiment=scotus +model=scotus-bert
-```
-
-### Editing T5 on zsRE with MELO
-```
-cd melo
+cd btp
 python run.py +alg=lora +experiment=qa +model=t5small
 ```
-
 
 ## Acknowledgments
 We would like to thank the following individuals and organizations for their contributions to this project:
 ```
 Huggingface: for their support of the PEFT community and their development of the PEFT framework (https://github.com/huggingface/peft)
-
-GRACE: for the development of the open-source library GRACE which inspired our work (https://github.com/Thartvigsen/GRACE)
 ```
