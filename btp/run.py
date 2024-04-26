@@ -1,3 +1,4 @@
+import argparse
 import copy
 import collections
 import random
@@ -19,10 +20,10 @@ from copy import deepcopy
 
 LOG = logging.getLogger(__name__)
 
-def run():
+def run(model_name, lr, steps, optimizer):
 
     
-    model_name = "t5small" # this should come from arguments
+    # model_name = "t5small" # this should come from arguments
     
     if model_name == "t5small":
         # T5-Small
@@ -111,24 +112,24 @@ def run():
 
     trainer = zsre_trainer(alg,tokenize,metric,edit_loader,upstream_loader,edit_loader)
     
+    torch.cuda.empty_cache()
+    loc, es, g, mins = trainer.run_edit(model_name, lr = lr, num_steps = steps, opt = optimizer)
+    
     file_path = f"results_{model_name}_new.txt"
-    for i in range(6):
-        # continue
-        torch.cuda.empty_cache()
-        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "Adam", model_name)
-        with open(file_path, "a") as file:
-            file.write("\n")
-            file.write(f"num_steps = {2**i}, opt = Adam:" + "\n") 
-            file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
-    for i in range(6):
-        # if i!=5:
-        #     continue
-        torch.cuda.empty_cache()
-        loc, es, g, mins = trainer.run_edit(num_steps = 2**i, opt = "SGD", model_name)
-        with open(file_path, "a") as file:
-            file.write("\n")
-            file.write(f"num_steps = {2**i}, opt = SGD:" + "\n") 
-            file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
+    with open(file_path, "a") as file:
+        file.write("\n")
+        file.write(f"num_steps = {steps}, opt = {optimizer}:, learning_rate = {lr}" + "\n") 
+        file.write(f"Locality: {loc}, Edit Success: {es}, Generality: {g}, Time: {mins} mins" + "\n")
 
 if __name__ == '__main__':
-    run()
+    
+    parser = argparse.ArgumentParser(description="Run a specific model.")
+    parser.add_argument("--model", type=str, default="t5small", help="Name of the model to run")
+    parser.add_argument("--lr", type=float, default=0.00005, help="Learning rate")
+    parser.add_argument("--steps", type=int, default=1, help="Number of steps")
+    parser.add_argument("--opt", type=str, default="Adam", help="Optimizer")
+
+    args = parser.parse_args()
+
+    run(args.model, args.lr, args.steps, args.opt)
+    # run()

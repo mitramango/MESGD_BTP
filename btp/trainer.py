@@ -56,7 +56,7 @@ class zsre_trainer:
             LOG.info(
                 f'Original average performance on upstream set: F1: {upstream_f1.item():.4f} || ACC: {upstream_acc.item():.4f}')
 
-    def run_edit(self, num_steps = 16, opt = "Adam", model_name):
+    def run_edit(self, model_name = "t5small", lr = 0.00005, num_steps = 16, opt = "Adam"):
         # --- editing start ---
         ''' **BTP** commented self.alg.enable_melo()'''
         n_edits = 0
@@ -80,7 +80,7 @@ class zsre_trainer:
             n_edits += 1
             # --- perform edit ---
             edit_start = time()
-            self.alg.edit(tokens, num_steps, opt)
+            self.alg.edit(tokens, lr, num_steps, opt)
             edit_time = time() - edit_start
             total_edit_time += edit_time
 
@@ -89,22 +89,27 @@ class zsre_trainer:
             with torch.no_grad():
                 print(f'-------------------------    {n_edits}   ----------------------------------')
                 # ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE))] #T5
-                ES = [self.metric(self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE, test=True), model_name)] #GPT2
+                ES = [self.metric(model_name, self.alg, self.tokenize(batch[0], self.alg.model_tok, DEVICE, test=True))] #GPT2
                 ES_f1 = torch.tensor([x[0] for x in ES]).nanmean()
                 print(f'Batch {i} Edit Success: F1: {ES_f1}')
                 all_ES = all_ES + ES_f1
                 # assert 1==2
                 
-                holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True), model_name)]
+                holdout = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True))]
                 holdout_f1 = torch.tensor([x[0] for x in holdout]).nanmean()
                 all_hold = all_hold + holdout_f1
                 print(f'Batch {i} Generality after Editing: F1: {holdout_f1}')
                 holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
 
                 
-                # UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
-                      # iter(self.upstream_loader)]
-                UP_f1 = torch.tensor([0.00]).nanmean()
+                if model_name == "t5small":
+                    UP = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
+                      iter(self.upstream_loader)]
+                    UP_f1 = torch.tensor(UP).nanmean()
+                else:
+                    # UP = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
+                          # iter(self.upstream_loader)]
+                    UP_f1 = torch.tensor([0.00]).nanmean()
                 all_local = all_local + UP_f1
                 print(f'Batch {i} Locality after Editing: F1: {UP_f1}')
                 UP_acc = torch.tensor([0.00]).nanmean()

@@ -121,7 +121,7 @@ def PPL(alg, batch):
 
 
 
-def F1_ACC(alg, batch, model_name):
+def F1_ACC(model_name, alg, batch):
     try:
         if model_name == "t5small":
             # T5

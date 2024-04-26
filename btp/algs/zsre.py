@@ -29,12 +29,12 @@ class qa(torch.nn.Module):
         lora_params = self.model.parameters()
         return lora_params
 
-    def edit(self, tokens, num_steps = 16, opt = "Adam"):
+    def edit(self, tokens, lr = 0.00005, num_steps = 16, opt = "Adam"):
         # self.model = torch.nn.DataParallel(self.model)
         if opt == "Adam":
-            optimizer = torch.optim.Adam(self.optim_parameters(), 1e-5)
+            optimizer = torch.optim.Adam(self.optim_parameters(), lr)
         else:
-            optimizer = torch.optim.SGD(self.optim_parameters(), 1e-5)
+            optimizer = torch.optim.SGD(self.optim_parameters(), lr)
         
         self.losses = []
         for i in range(num_steps):
