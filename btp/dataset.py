@@ -35,7 +35,7 @@ class SCOTUS(Dataset):
         return self.data[idx]
 
 class NQ(Dataset):
-    def __init__(self, path="./../melo/data/nq/train.json"):
+    def __init__(self, path="./datasets/nq/train.json"):
         with open(path, "r") as f:
             NQ = json.load(f)
 
@@ -55,7 +55,7 @@ class NQ(Dataset):
 
 
 class zsRE(Dataset):
-    def __init__(self, path="./../melo/data/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit"):
+    def __init__(self, path="./datasets/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit"):
         questions, answers = self.load_zsre(path)
 
         edits = []
@@ -105,7 +105,7 @@ class zsRE(Dataset):
 
 
 class zsRE_balanced(Dataset):
-    def __init__(self, path="./../melo/data/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit", n_edits= 5000):
+    def __init__(self, path="./datasets/zsre/structured_zeroshot-train-new_annotated_final.jsonl", split="edit", n_edits= 5000):
         # inner = 1*question + (n-1)*rephrases
         # outer = n*rephrases
         inner_questions, inner_answers, outer_questions, outer_answers, actual, holdout = \
