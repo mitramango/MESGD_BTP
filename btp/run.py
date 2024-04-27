@@ -124,7 +124,7 @@ def run(model_name, lr, steps, optimizer):
     '''
     batch_size = 1 #BTP
     edit_loader = DataLoader(edits, batch_size=batch_size, shuffle=False)
-    upstream_loader = DataLoader(upstream, batch_size=100, shuffle=False)
+    upstream_loader = DataLoader(upstream, batch_size=100, shuffle=True)
     
     '''Define Metrics
     '''

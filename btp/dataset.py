@@ -35,18 +35,19 @@ class SCOTUS(Dataset):
         return self.data[idx]
 
 class NQ(Dataset):
-    def __init__(self, path="./datasets/nq/train.json"):
+    def __init__(self, l = 1000, path="./datasets/nq/train.json"):
         with open(path, "r") as f:
             NQ = json.load(f)
 
         questions, answers = NQ["questions"], NQ["answers"]
         self.data = []
-        for x, y in zip(questions[:1000], answers[:1000]):
+        
+        for x, y in zip(questions[:l], answers[:l]):
             self.data.append({
                 "text": x,
                 "labels": y
             })
-
+        
     def __len__(self):
         return len(self.data)
 
