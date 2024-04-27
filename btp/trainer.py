@@ -102,14 +102,11 @@ class zsre_trainer:
                 holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
 
                 
-                if model_name == "t5small":
-                    UP = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
-                      iter(self.upstream_loader)]
-                    UP_f1 = torch.tensor(UP).nanmean()
-                else:
-                    # UP = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
-                          # iter(self.upstream_loader)]
-                    UP_f1 = torch.tensor([0.00]).nanmean()
+
+                UP = [self.metric(model_name, self.alg, self.tokenize(e, self.alg.model_tok, DEVICE, test=True)) for e in
+                  iter(self.upstream_loader)]
+                UP_f1 = torch.tensor(UP).nanmean()
+
                 all_local = all_local + UP_f1
                 print(f'Batch {i} Locality after Editing: F1: {UP_f1}')
                 UP_acc = torch.tensor([0.00]).nanmean()

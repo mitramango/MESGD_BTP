@@ -31,6 +31,31 @@ def run(model_name, lr, steps, optimizer):
         tokenizer = AutoTokenizer.from_pretrained("google/t5-small-ssm-nq")
         tokenize = tokenize_qa
     
+    elif model_name == "t5large":
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-large-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-large-ssm-nq")
+        tokenize = tokenize_qa
+        
+    elif model_name == "t5xl":
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-xl-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-xl-ssm-nq")
+        tokenize = tokenize_qa
+        
+    elif model_name == "t5xxl":
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-xxl-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-xxl-ssm-nq")
+        tokenize = tokenize_qa
+    
+    elif model_name == "t53b":
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-3b-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-3b-ssm-nq")
+        tokenize = tokenize_qa
+        
+    elif model_name == "t511b":
+        model = AutoModelForSeq2SeqLM.from_pretrained("google/t5-11b-ssm-nq")
+        tokenizer = AutoTokenizer.from_pretrained("google/t5-11b-ssm-nq")
+        tokenize = tokenize_qa    
+    
     elif model_name == "gpt2": 
         # GPT-2
         model = GPT2LMHeadModel.from_pretrained("gpt2")
