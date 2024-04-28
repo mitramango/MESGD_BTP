@@ -123,7 +123,7 @@ def PPL(alg, batch):
 
 def F1_ACC(model_name, alg, batch):
     try:
-        if model_name == "t5small":
+        if "t5" in model_name:
             # T5
             preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
         else:

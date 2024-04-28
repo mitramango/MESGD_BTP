@@ -17,7 +17,7 @@ do
       for step in "${steps[@]}"
       do
          # Run the experiment with the current model, optimizer, and step value
-         python run.py --model $model --lr 0.00005 --steps $step --opt $opt
+         python run.py --model $model --lr 0.00001 --steps $step --opt $opt
       done
    done
 done

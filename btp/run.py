@@ -72,7 +72,7 @@ def run(model_name, lr, steps, optimizer):
     
     elif model_name == "llama2chat":
         # Llama 2 Chat directly from HuggingFace
-        model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chathf",torch_dtype=torch.bfloat16)
+        model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf",torch_dtype=torch.bfloat16)
         tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", padding_side='left')
         tokenizer.pad_token_id = tokenizer.eos_token_id
         tokenize = tokenize_gpt
@@ -81,9 +81,9 @@ def run(model_name, lr, steps, optimizer):
         # Mistral 7B
         base_model = "mistralai/Mistral-7B-v0.1"
         model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=torch.bfloat16)
+        
         tokenizer = AutoTokenizer.from_pretrained(
             base_model,
-            model_max_length=512,
             padding_side="left",
             add_eos_token=True,
             add_bos_token=True,)
