@@ -150,7 +150,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description="Run a specific model.")
     parser.add_argument("--model", type=str, default="t5small", help="Name of the model to run")
-    parser.add_argument("--lr", type=float, default=0.00005, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=0.00001, help="Learning rate")
     parser.add_argument("--steps", type=int, default=1, help="Number of steps")
     parser.add_argument("--opt", type=str, default="Adam", help="Optimizer")
 
