@@ -56,9 +56,49 @@ for e in tqdm(range(epochs)):
     print(f"Epoch {e}, Loss: {val_loss / cnt}")
     
 
-torch.save(model, "gpt2_nq_checkpoints/gpt_nq_checkpoint")
+torch.save(model.state_dict(), "gpt2_nq_checkpoints/gpt_nq_checkpoint.pth")
 
-UP = [F1_ACC(gpt2, model, tokenize_gpt(e, tokenizer, DEVICE, test=True)) for e in
+
+def F1_ACC(model_name, alg, batch, tok):
+    try:
+        if "t5" in model_name:
+            # T5
+            preds = alg.generate(batch["input_ids"], max_length=20).squeeze(1) 
+        else:
+            # # GPT2
+            preds = alg.generate(batch["input_ids"], pad_token_id=tok.pad_token_id, max_new_tokens=20).squeeze(1) 
+            preds = [preds[i][len(batch["input_ids"][i]):] for i in range(len(preds))]
+        
+        f1 = F1(preds, batch, tok)
+        acc = 1.0
+        return f1, acc
+    except Exception as e:
+        raise e
+
+def F1(preds, batch, tok):
+    # try:
+    # print("this", len(batch["labels"]))
+    try:
+        f1_list = []
+        # print("yahan", len(preds)) 
+        for p, g in zip(preds,batch["labels"]):
+            p = p[p !=  tok.pad_token_id].cpu().squeeze()
+            g = g[g != -100].cpu().squeeze()  # -100 might be nonsense
+            #i print(p, g)
+            num_same = len(np.intersect1d(p, g))
+            len_pred = len(p)
+            len_gold = len(g)
+            precision = num_same / len_pred
+            recall = 1.0 * num_same / len_gold
+            f1 = (2 * precision * recall) / (precision + recall)
+            f1_list.append(f1)
+    except:
+        # print("galti")
+        return 0.
+    # print(f1_list)
+    return sum(f1_list) / len(f1_list)
+
+UP = [F1_ACC("gpt2", model, tokenize_gpt(e, tokenizer, DEVICE, test=True), tokenizer) for e in
           iter(upstream_loader)]
 UP_f1 = torch.tensor(UP).nanmean()
 
